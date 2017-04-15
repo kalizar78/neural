@@ -1,6 +1,6 @@
 # *-* encoding utf-8
 # Author: kalizar78
-from __future__ import print_functin
+from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 
@@ -66,8 +66,7 @@ class LSTMCell(object) :
 
         with tf.variable_scope(name, reuse = reuse) as scope:
             # non recurrent parameters
-            self.W = tf.get_variable('W', shape = [indim, self.num_activations * celldim],
-                                     initializer = _stacked_ortho_weights(indim, celldim, self.num_activations))
+            self.W = tf.get_variable('W', initializer = _stacked_ortho_weights(indim, celldim, self.num_activations))
             # recurrnt parameters
             self.U = tf.get_variable('U', initializer = _stacked_ortho_weights(celldim,celldim,self.num_activations))
 
@@ -86,7 +85,7 @@ class LSTMCell(object) :
         xt = tf.transpose(x_t, [1,0,2]) # [nsteps, batch, indim]
         # unroll since tf doesn't support np.dot(tensor3, tensor2)
         xt_unroll = tf.reshape(xt, [-1, self.indim])
-        Wxt = tf.reshape(tf.matmul(xt_unroll, self.W) + b, [-1, self.batch_size, self.num_activations * self.celldim])
+        Wxt = tf.reshape(tf.matmul(xt_unroll, self.W) + self.b, [-1, self.batch_size, self.num_activations * self.celldim])
         # Apply dropout to non-recurrent connections here (future)
 
         # Use tf.scan to apply recurrent connections
@@ -109,7 +108,12 @@ class LSTMCell(object) :
         Wxt = tf.reshape(tf.matmul(xt_unroll, self.W) + b, [self.batch_size, self.num_activations * self.celldim])
         # Apply dropout to non-recurrent connections here (future)
 
-        return self._step([self.hstate, self.cell], Wxt)
+        # step unit
+        h_tp1, c_tp1 = self._step([self.hstate, self.cell], Wxt)
+
+        # keep consistent with inference tensor return shapes
+        resize_shape = [1, self.batch_size, self.cell_dim]
+        return tf.reshape(h_tp1, resize_shape), tf.reshape(c_tp1, resize_shape)
 
     def state_update(self, state, cell) :
         """
@@ -120,14 +124,15 @@ class LSTMCell(object) :
         assign_state = tf.assign(self.hstate, state)
         assign_cell  = tf.assign(self.cell, cell)
 
+        return assign_state, assign_cell
+    
     def _step(self, hc, Wxt) :
         """ LSTM stepping function
         Wxt will be a slice of Wxt above in inference, so a tensor2 of shape [batch, celldim]
         hc[0] = previous hstate
         hc[1] = previous cell state
         """
-
-
+        
         h_tm1 = hc[0]
         c_tm1 = hc[1]
         # Pre-activation
@@ -135,10 +140,10 @@ class LSTMCell(object) :
         it = tf.nn.sigmoid(tf.slice(preact, [0, 0],              [self.batch_size, self.celldim]))
         ft = tf.nn.sigmoid(tf.slice(preact, [0, self.celldim],   [self.batch_size, self.celldim]))
         ot = tf.nn.sigmoid(tf.slice(preact, [0, 2*self.celldim], [self.batch_size, self.celldim]))
-        gt = tf.nn.sigmoid(tf.slice(preact, [0, 3*self.celldim], [self.batch_size, self.celldim]))
+        gt = tf.nn.tanh   (tf.slice(preact, [0, 3*self.celldim], [self.batch_size, self.celldim]))
 
         ct = tf.add(tf.multiply(it, gt), tf.multiply(ft, c_tm1))
-        ht = tf.multiply(ct, tf.tanh(ct))
+        ht = tf.multiply(ot, tf.tanh(ct))
 
         return [ht, ct]
 
