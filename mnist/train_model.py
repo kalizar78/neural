@@ -18,7 +18,7 @@ mnist = input_data.read_data_sets(datadir)
 batch_size = 50
 nsteps = 28 
 indim  = 28
-celldim = 64
+celldim = 128
 lr = 0.01 # learning rate
 l1_scale = 0.0001
 

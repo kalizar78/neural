@@ -31,13 +31,14 @@ def inference(xt, batch_size, nsteps, indim, celldim, keep_prob, reuse = False) 
         be = tf.get_variable('b', shape = [celldim],
                              initializer = tf.constant_initializer(0.0))
 
-    # unroll and project
-    xt_unroll  = tf.reshape(xt, [-1, indim])
-    Wxt = tf.reshape(tf.nn.sigmoid(tf.matmul(xt_unroll, We) + be), [batch_size, nsteps, celldim])
+    # unroll and embed
+    xt_unroll  = tf.reshape(xt, [batch_size * nsteps, indim])
+    Wxt = tf.nn.sigmoid(tf.matmul(xt_unroll, We) + be) # [batch * nsteps, celldim]
+    Wxt_embed = tf.reshape(Wxt, [batch_size, nsteps, celldim])
 
     # spatial temporal projection via LSTM
     rnn = lstm.LSTMCell(celldim, celldim, batch_size, 'MyLSTMCell', reuse = reuse)    
-    ht, ct = rnn.inference(Wxt)
+    ht, ct = rnn.inference(Wxt_embed)
 
     # 10 output classes
     with tf.variable_scope('projection', reuse = reuse) as scope:
@@ -49,7 +50,7 @@ def inference(xt, batch_size, nsteps, indim, celldim, keep_prob, reuse = False) 
     # First regularize via dropout the last hidden state:
     h_drop = tf.nn.dropout(ht[-1], keep_prob)
 
-    logits = tf.nn.sigmoid(tf.matmul(h_drop, Wp) + bp)
+    logits = tf.matmul(h_drop, Wp) + bp
 
     params = [We, be, rnn, Wp, bp]
     activations = [Wxt, ht, ct, logits]
