@@ -15,7 +15,7 @@ mnist = input_data.read_data_sets(datadir)
 ### setup computational graph
 
 # Some training hyper-parameters
-batch_size = 32
+batch_size = 50
 nsteps = 28 
 indim  = 28
 celldim = 64
@@ -37,7 +37,7 @@ total_loss = xe_loss + l1_loss
 
 #### Performance Monitoring
 ncorrect = tf.equal(labels, tf.argmax(logits, 1))
-train_acc = tf.reduce_mean(tf.cast(ncorrect, tf.float32))
+accuracy = tf.reduce_mean(tf.cast(ncorrect, tf.float32))
 
 
 optimizer = tf.train.RMSPropOptimizer(learning_rate = lr)
@@ -52,14 +52,19 @@ drop_p = 0.5
 for i in xrange(1000000) :
     img, lbl = mnist.train.next_batch(batch_size)
 
-    xe, l1, loss, acc, _ = sess.run([xe_loss, l1_loss, total_loss, train_acc, train_step], feed_dict = {x: img, labels:lbl, keep_prob: 1. - drop_p})
+    xe, l1, loss, acc, _ = sess.run([xe_loss, l1_loss, total_loss, accuracy, train_step],
+                                    feed_dict = {x: img, labels:lbl, keep_prob: 1. - drop_p})
 
     if (i % 100 == 0) : 
         print('[Step %d] Loss: %f (xe: %f) (l1: %f) (acc: %f) ' % (i, loss, xe, l1, acc))
     
 
-
-
+    if (i % 1000 == 0 and i > 0 ) : # occasionally compute validation error
+        validation_error = 0.
+        for k in xrange(mnist.validation.images.shape[0] / batch_size) :
+            vimg, vlbl = mnist.validation.next_batch(batch_size)
+            validation_error += sess.run(accuracy, feed_dict = {x: vimg, labels: vlbl, keep_prob: 1.0})
+        print('Validation Accuracy: %f' % (validation_error))
 
 
 
