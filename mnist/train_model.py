@@ -19,7 +19,7 @@ batch_size = 50
 nsteps = 28 
 indim  = 28
 celldim = 64
-lr = 0.001 # learning rate
+lr = 0.01 # learning rate
 l1_scale = 0.0001
 
 
@@ -33,7 +33,7 @@ logits = activations[-1]
 #### Loss
 xe_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels = labels, logits = logits))
 l1_loss = tf.contrib.layers.apply_regularization(tf.contrib.layers.l1_regularizer(l1_scale), tf.trainable_variables())
-total_loss = xe_loss + l1_loss
+total_loss = xe_loss #+ l1_loss
 
 #### Performance Monitoring
 ncorrect = tf.equal(labels, tf.argmax(logits, 1))

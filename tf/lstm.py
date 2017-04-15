@@ -66,7 +66,8 @@ class LSTMCell(object) :
 
         with tf.variable_scope(name, reuse = reuse) as scope:
             # non recurrent parameters
-            self.W = tf.get_variable('W', initializer = _stacked_ortho_weights(indim, celldim, self.num_activations))
+            self.W = tf.get_variable('W', shape = [indim, self.num_activations * celldim], dtype = tf.float32,
+                                     initializer = tf.contrib.layers.xavier_initializer())
             # recurrnt parameters
             self.U = tf.get_variable('U', initializer = _stacked_ortho_weights(celldim,celldim,self.num_activations))
 
