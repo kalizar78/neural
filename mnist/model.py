@@ -7,6 +7,8 @@ import sys
 sys.path.append('../tf')
 import lstm
 
+
+rnn_name = 'MyLSTM'
 def inference(xt, batch_size, nsteps, indim, celldim, keep_prob, reuse = False) :
     """ setup inference graph
     Args: 
@@ -37,8 +39,11 @@ def inference(xt, batch_size, nsteps, indim, celldim, keep_prob, reuse = False) 
     Wxt_embed = tf.reshape(Wxt, [batch_size, nsteps, celldim])
 
     # spatial temporal projection via LSTM
-    rnn = lstm.LSTMCell(celldim, celldim, batch_size, 'MyLSTMCell', reuse = reuse)    
-    ht, ct = rnn.inference(Wxt_embed)
+
+    rnn = lstm.LSTMCell(celldim, celldim, batch_size, rnn_name, reuse = reuse)
+    rnn_state = rnn.get_states(rnn_name) # zero initialized state
+    
+    ht, ct = rnn.inference(Wxt_embed, rnn_state)
 
     # 10 output classes
     with tf.variable_scope('projection', reuse = reuse) as scope:
@@ -52,6 +57,6 @@ def inference(xt, batch_size, nsteps, indim, celldim, keep_prob, reuse = False) 
 
     logits = tf.matmul(h_drop, Wp) + bp
 
-    params = [We, be, rnn, Wp, bp]
+    params = [We, be, rnn, rnn_state, Wp, bp]
     activations = [Wxt, ht, ct, logits]
     return params, activations

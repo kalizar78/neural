@@ -18,8 +18,8 @@ mnist = input_data.read_data_sets(datadir)
 batch_size = 50
 nsteps = 28 
 indim  = 28
-celldim = 128
-lr = 0.01 # learning rate
+celldim = 64
+lr = 0.001 # learning rate
 l1_scale = 0.0001
 
 
@@ -39,36 +39,55 @@ total_loss = xe_loss #+ l1_loss
 ncorrect = tf.equal(labels, tf.argmax(logits, 1))
 accuracy = tf.reduce_mean(tf.cast(ncorrect, tf.float32))
 
-
+#### Optimizer
 optimizer = tf.train.RMSPropOptimizer(learning_rate = lr)
-
 train_step = optimizer.minimize(total_loss)
+
+#### Tensorboard
+xe_summ = tf.summary.scalar('xe_loss', xe_loss)
+l1_summ = tf.summary.scalar('l1_loss', l1_loss)
+
+train_summ = tf.summary.merge([xe_summ, l1_summ])
+
+
+
+#### Session, param init
 
 sess = tf.InteractiveSession()
 tf.global_variables_initializer().run() # initialize all model params
+
+summary_writer = tf.summary.FileWriter('./logs', graph = sess.graph)
+
 
 drop_p = 0.5
 
 for i in xrange(1000000) :
     img, lbl = mnist.train.next_batch(batch_size)
 
-    xe, l1, loss, acc, _ = sess.run([xe_loss, l1_loss, total_loss, accuracy, train_step],
-                                    feed_dict = {x: img, labels:lbl, keep_prob: 1. - drop_p})
+    xe, l1, loss, acc, _, summ = sess.run([xe_loss, l1_loss, total_loss, accuracy, train_step, train_summ],
+                                          feed_dict = {x: img, labels:lbl, keep_prob: 1. - drop_p})
 
+    summary_writer.add_summary(summ, i)
+    
     if (i % 100 == 0) : 
         print('[Step %d] Loss: %f (xe: %f) (l1: %f) (acc: %f) ' % (i, loss, xe, l1, acc))
     
 
     if (i % 1000 == 0 and i > 0 ) : # occasionally compute validation error
-        validation_error = 0.
-        for k in xrange(mnist.validation.images.shape[0] / batch_size) :
+        validation_acc = 0.
+        niter = mnist.validation.images.shape[0] / batch_size
+        for k in xrange(niter) : 
             vimg, vlbl = mnist.validation.next_batch(batch_size)
-            validation_error += sess.run(accuracy, feed_dict = {x: vimg, labels: vlbl, keep_prob: 1.0})
-        print('Validation Accuracy: %f' % (validation_error))
+            validation_acc += sess.run(accuracy, feed_dict = {x: vimg, labels: vlbl, keep_prob: 1.0})
+        validation_acc /= niter
+        print('Validation Accuracy: %f' % (validation_acc))
 
 
 
-
+        if(validation_acc > .99) :
+            print('Early Stopping condition met!')
+            break
+        
 
 
 

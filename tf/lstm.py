@@ -75,12 +75,38 @@ class LSTMCell(object) :
             self.b = tf.get_variable('b', initializer = _bias_init(celldim, self.num_activations))
 
             # hidden state and cell memories:
-            self.hstate = tf.get_variable('hstate', initializer = np.zeros((batch_size, celldim), dtype = np.float32))
-            self.cell   = tf.get_variable('cell',   initializer = np.zeros((batch_size, celldim), dtype = np.float32))
+            #self.hstate = tf.get_variable('hstate', initializer = np.zeros((batch_size, celldim), dtype = np.float32))
+            #self.cell   = tf.get_variable('cell',   initializer = np.zeros((batch_size, celldim), dtype = np.float32))
+
+    def get_states(self, scope_name, reuse = False, init = None) :
+        """
+        Gets cell, states.
+        scope_name : name of scope
+        reuse      : reuse of variable
+        init       : initializer (if none zero state is returned)
+        Returns:
+        [cell_0, hstate_0]
+        """
+        
+        if(init is not None) :
+            assert(init.shape == (self.batch_size, self.celldim))
+            initializer = init
+        else :
+            initializer = np.zeros((self.batch_size, self.celldim), dtype = np.float32)
+
             
-    def inference(self, x_t) :
+        with tf.variable_scope(scope_name, reuse = reuse)  as scope:
+
+            c = tf.get_variable('cell', initializer = initializer)
+            h = tf.get_variable('hstate', initializer = initializer)
+
+        return [c,h]
+        
+    def inference(self, x_t, ch) : 
         """ Sets up inference graph.
         x_t : [batch, nsteps, indim] tensor
+        ch[0]  : initial cell
+        ch[1]  : initial state
         """
 
         xt = tf.transpose(x_t, [1,0,2]) # [nsteps, batch, indim]
@@ -91,17 +117,18 @@ class LSTMCell(object) :
 
         # Use tf.scan to apply recurrent connections
 
-        hstate_t, cell_t = tf.scan(self._step,
+        cell_t, hstate_t = tf.scan(self._step,
                                    Wxt, # these get sliced
-                                   initializer = [self.hstate, self.cell]) # accumulator initial values (don't get set by scan
+                                   initializer = [ch[0], ch[1]]) # accumulator initial values (don't get set by scan
 
+        return cell_t, hstate_t
 
-        return hstate_t, cell_t
-
-    def inference_step(self, x_t) :
+    def inference_step(self, x_t, cht) : 
         """
         inference step, convenience for stepping once so we don't have to enter tf.scan
         x_t : [batch, 1 , indim] tensor
+        cht : [seed cell ct, seed state ht]
+
         """
         xt = tf.transpose(x_t, [1,0,2]) # [1, batch, indim]
         # unroll since tf doesn't support np.dot(tensor3, tensor2)
@@ -110,32 +137,23 @@ class LSTMCell(object) :
         # Apply dropout to non-recurrent connections here (future)
 
         # step unit
-        h_tp1, c_tp1 = self._step([self.hstate, self.cell], Wxt)
+        h_tp1, c_tp1 = self._step(cht, Wxt)
 
         # keep consistent with inference tensor return shapes
         resize_shape = [1, self.batch_size, self.cell_dim]
         return tf.reshape(h_tp1, resize_shape), tf.reshape(c_tp1, resize_shape)
 
-    def state_update(self, state, cell) :
-        """
-        returns state and cell assignment ops
-        Note: You should use tf.control_dependencies when using assignment ops
-        """
-
-        assign_state = tf.assign(self.hstate, state)
-        assign_cell  = tf.assign(self.cell, cell)
-
-        return assign_state, assign_cell
     
-    def _step(self, hc, Wxt) :
+    def _step(self, ch, Wxt) :
         """ LSTM stepping function
-        Wxt will be a slice of Wxt above in inference, so a tensor2 of shape [batch, celldim]
-        hc[0] = previous hstate
-        hc[1] = previous cell state
+        Wxt will be a slice of Wxt above in inference, so a tensor2 of shape [batch, num_activations*celldim]
+        ch[0] = previous cell
+        ch[1] = previous hstate
         """
-        
-        h_tm1 = hc[0]
-        c_tm1 = hc[1]
+
+        c_tm1 = ch[0]        
+        h_tm1 = ch[1]
+
         # Pre-activation
         preact = tf.add(Wxt, tf.matmul(h_tm1, self.U)) # add in recurrent contributions
         it = tf.nn.sigmoid(tf.slice(preact, [0, 0],              [self.batch_size, self.celldim]))
@@ -146,7 +164,7 @@ class LSTMCell(object) :
         ct = tf.add(tf.multiply(it, gt), tf.multiply(ft, c_tm1))
         ht = tf.multiply(ot, tf.tanh(ct))
 
-        return [ht, ct]
+        return [ct, ht]
 
 
     
