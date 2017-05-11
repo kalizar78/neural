@@ -43,7 +43,7 @@ def inference(xt, batch_size, nsteps, indim, celldim, keep_prob, reuse = False) 
     rnn = lstm.LSTMCell(celldim, celldim, batch_size, rnn_name, reuse = reuse)
     rnn_state = rnn.get_states(rnn_name) # zero initialized state
     
-    ht, ct = rnn.inference(Wxt_embed, rnn_state)
+    ct, ht = rnn.inference(Wxt_embed, rnn_state)
 
     # 10 output classes
     with tf.variable_scope('projection', reuse = reuse) as scope:

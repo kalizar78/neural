@@ -123,25 +123,23 @@ class LSTMCell(object) :
 
         return cell_t, hstate_t
 
-    def inference_step(self, x_t, cht) : 
+    def inference_step(self, xt, cht) : 
         """
         inference step, convenience for stepping once so we don't have to enter tf.scan
-        x_t : [batch, 1 , indim] tensor
+        x_t : [batch, indim] tensor
         cht : [seed cell ct, seed state ht]
-
+        ct of shape [batch, celldim]
+        ht of shape [batch, celldim]
         """
-        xt = tf.transpose(x_t, [1,0,2]) # [1, batch, indim]
-        # unroll since tf doesn't support np.dot(tensor3, tensor2)
-        xt_unroll = tf.reshape(xt, [-1, self.indim])
-        Wxt = tf.reshape(tf.matmul(xt_unroll, self.W) + b, [self.batch_size, self.num_activations * self.celldim])
+        # Wxt of shape [batch, celldim]
+        Wxt = tf.reshape(tf.matmul(xt, self.W) + self.b,
+                         [self.batch_size, self.num_activations * self.celldim])
         # Apply dropout to non-recurrent connections here (future)
 
         # step unit
         h_tp1, c_tp1 = self._step(cht, Wxt)
-
-        # keep consistent with inference tensor return shapes
-        resize_shape = [1, self.batch_size, self.cell_dim]
-        return tf.reshape(h_tp1, resize_shape), tf.reshape(c_tp1, resize_shape)
+        
+        return c_tp1, h_tp1
 
     
     def _step(self, ch, Wxt) :

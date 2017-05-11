@@ -4,12 +4,14 @@ from __future__ import print_function
 
 import tensorflow as tf
 import numpy as np
+import sys
+sys.path.append('../data')
 
 import input_data # for reading MNIST data
-import model      # model specification
+import classmodel      # model specification
 ### Data
 
-datadir = '.'
+datadir = '../data'
 mnist = input_data.read_data_sets(datadir)
 
 ### setup computational graph
@@ -28,7 +30,7 @@ keep_prob = tf.placeholder(tf.float32, name = 'keep_prob')
 labels = tf.placeholder(tf.int64, [batch_size,], name = 'sparse_labs')   # sparse labels
 
 xt = tf.reshape(x, [batch_size, nsteps, indim])
-params, activations = model.inference(xt, batch_size, nsteps, indim, celldim, keep_prob)
+params, activations = classmodel.inference(xt, batch_size, nsteps, indim, celldim, keep_prob)
 logits = activations[-1]
 #### Loss
 xe_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels = labels, logits = logits))
@@ -56,7 +58,7 @@ train_summ = tf.summary.merge([xe_summ, l1_summ])
 sess = tf.InteractiveSession()
 tf.global_variables_initializer().run() # initialize all model params
 
-summary_writer = tf.summary.FileWriter('./logs', graph = sess.graph)
+summary_writer = tf.summary.FileWriter('./classificaiton_log', graph = sess.graph)
 
 
 drop_p = 0.5
