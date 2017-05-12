@@ -127,7 +127,7 @@ class Model(object) :
 
         ct_enc, ht_enc = self.encode(xt, nsteps, keep_prob_enc)
         img_logits = self.decode(ct_enc[-1], nsteps, keep_prob_dec)
-        return img_logits
+        return tf.nn.sigmoid(img_logits)
         
 
         

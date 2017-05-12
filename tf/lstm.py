@@ -137,7 +137,7 @@ class LSTMCell(object) :
         # Apply dropout to non-recurrent connections here (future)
 
         # step unit
-        h_tp1, c_tp1 = self._step(cht, Wxt)
+        c_tp1, h_tp1 = self._step(cht, Wxt)
         
         return c_tp1, h_tp1
 
