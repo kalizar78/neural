@@ -58,7 +58,7 @@ train_summ = tf.summary.merge([xe_summ, l1_summ])
 sess = tf.InteractiveSession()
 tf.global_variables_initializer().run() # initialize all model params
 
-summary_writer = tf.summary.FileWriter('./classificaiton_log', graph = sess.graph)
+summary_writer = tf.summary.FileWriter('./classifiction_log', graph = sess.graph)
 
 
 drop_p = 0.5

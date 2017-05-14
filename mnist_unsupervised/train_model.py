@@ -33,7 +33,7 @@ savedir = './models'
 
 x = tf.placeholder(tf.float32, [batch_size, 784], name = 'x')
 t = tf.placeholder(tf.float32, [batch_size, 784], name = 'target')
-tt = tf.reshape(t, [batch_size, nsteps, indim])
+tt = tf.round(tf.reshape(t, [batch_size, nsteps, indim]))
 keep_prob_e = tf.placeholder(tf.float32, name = 'keep_prob_enc')
 keep_prob_d = tf.placeholder(tf.float32, name = 'keep_prob_dec')
 labels = tf.placeholder(tf.int64, [batch_size,], name = 'sparse_labs')   # sparse labels
