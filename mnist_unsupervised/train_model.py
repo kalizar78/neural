@@ -10,6 +10,8 @@ sys.path.append('../data')
 
 import input_data # for reading MNIST data
 import unsupmodel      # model specification
+
+import matplotlib.pyplot as plt
 ### Data
 
 datadir = '../data'
@@ -25,7 +27,7 @@ celldim = 64
 lr = 0.00001 # learning rate
 l1_scale = 0.0001
 savedir = './models'
-os.mkdir(savedir)
+
 
 
 
@@ -106,14 +108,18 @@ for i in xrange(1000000) :
             validation_acc += sess.run(accuracy, feed_dict = {x: vimg, t: vimg, keep_prob_e: 1.0, keep_prob_d: 1.0})
         validation_acc /= niter
         print('Validation Accuracy: %f' % (validation_acc))
-        savefile = savedir + 'umodel'
-        saver.save(sess, savefile', global_step = i)
+        savefile = os.path.join(savedir, 'umodel')
+        saver.save(sess, savefile, global_step = i)
 
 
         if(validation_acc >.99) :
             print('Early Stopping condition met!')
             break
+        if(validation_acc > .75) :
+            testimg = sess.run(yt, feed_dict = {x : vimg, keep_prob_e: 1.0, keep_prob_d: 1.0})
+            print(vlbl)
+            plt.imshow(testimg[0])
+            plt.show()
         
-
-
+    
 
