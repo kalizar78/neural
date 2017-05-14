@@ -144,10 +144,13 @@ class Model(object) :
         c_tp1, h_tp1 = self.rnn_dec.inference_step(xt, ch)
         # binary logits of shape [batch, indim]. Each coordinate is a binary logit
         bprobs = tf.nn.sigmoid(tf.matmul(h_tp1, self.Wd) + self.bd) # shape: [batch, indim], probs
+        """
         bprobs_reshape = tf.reshape(bprobs, [self.batch_size * self.indim,])
         blogits = tf.stack([tf.constant(1.0) - bprobs_reshape, bprobs_reshape], axis=1) # convert to 2 class logits
         rsamples = tf.multinomial(blogits, 1) # shape [batch*indim, 1] where second dimension is {0,1} sample
         samples = tf.cast(tf.reshape(rsamples, [self.batch_size, self.indim]), tf.float32)
+        """
+        samples = tf.round(bprobs)
         return [h_tp1, [c_tp1, h_tp1], samples]
         
         
