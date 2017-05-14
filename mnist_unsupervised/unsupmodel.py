@@ -72,10 +72,12 @@ class Model(object) :
         return ct_enc, ht_enc
 
 
-    def decode_step(self, x_ch, N) :
+    def decode_step(self, x_ch, t) :
         """
-        x_ch[0] = xt
+        xt, ct, ht of shape [batch, celldim]
+        x_ch[0] = xt 
         x_ch[1] = [ct, ht]
+        t       = index, unused
         """
         # 1 step RNN embedding
         xt = x_ch[0]
@@ -117,7 +119,7 @@ class Model(object) :
         return img_logits
 
 
-        
+
     def encode_decode(self, xt, nsteps, keep_prob_enc, keep_prob_dec) :
         """ Apply encoder, decoder in sequence to xt
         xt : [batch, nsteps, indim]
@@ -128,6 +130,40 @@ class Model(object) :
         ct_enc, ht_enc = self.encode(xt, nsteps, keep_prob_enc)
         img_logits = self.decode(ct_enc[-1], nsteps, keep_prob_dec)
         return tf.nn.sigmoid(img_logits)
-        
 
+    def sample_step(self, x_ch_s, t) :
+        """
+        xt, ct, ht of shape [batch, celldim]
+        x_ch_s[0] = xt
+        x_ch_s[1] = [ct, ht]
+        x_ch_s[2] = samples of shape [batch_size, indim]
+        t = index, unused
+        """
+        xt = x_ch_s[0] # input
+        ch = x_ch_s[1] # current cell, hidden state
+        c_tp1, h_tp1 = self.rnn_dec.inference_step(xt, ch)
+        # binary logits of shape [batch, indim]. Each coordinate is a binary logit
+        bprobs = tf.nn.sigmoid(tf.matmul(h_tp1, self.Wd) + self.bd) # shape: [batch, indim], probs
+        bprobs_reshape = tf.reshape(bprobs, [self.batch_size * self.indim,])
+        blogits = tf.stack([tf.constant(1.0) - bprobs_reshape, bprobs_reshape], axis=1) # convert to 2 class logits
+        rsamples = tf.multinomial(blogits, 1) # shape [batch*indim, 1] where second dimension is {0,1} sample
+        samples = tf.cast(tf.reshape(rsamples, [self.batch_size, self.indim]), tf.float32)
+        return [h_tp1, [c_tp1, h_tp1], samples]
+        
+        
+    def sample(self, xt, nsteps) :
+        """
+        Given initial cell value, sample from output distribution (binary per pixel)
+        
+        """
+
+        ct_enc, ht_enc = self.encode(xt, nsteps, tf.constant(1.0))
+        
+        x0 = tf.zeros_like(self.rnn_dec_state[0])
+        # Sample using ct_enc[-1], i.e. last set of encoder memories
+        ht, cht, st = tf.scan(self.sample_step, 
+                              tf.constant(np.arange(nsteps).astype(np.float32).reshape([nsteps,1])),
+                              initializer = [x0, [ct_enc[-1], self.rnn_dec_state[1]], tf.zeros([self.batch_size, self.indim])])
+
+        return tf.transpose(st, [1,0,2]) # shape [batch, nsteps, indim]
         

@@ -41,6 +41,9 @@ labels = tf.placeholder(tf.int64, [batch_size,], name = 'sparse_labs')   # spars
 xt = tf.reshape(x, [batch_size, nsteps, indim])
 model = unsupmodel.Model(batch_size, indim, celldim)
 yt = model.encode_decode(xt, nsteps, keep_prob_e, keep_prob_d) # [batch, nsteps, indim]
+
+samples = model.sample(xt, nsteps) # produces sampled output from encded cells from xt
+
 #### Loss
 #print('NOTE: Using MSE Loss... May want to switch to Binary Cross Entropy')
 
@@ -115,8 +118,8 @@ for i in xrange(1000000) :
         if(validation_acc >.99) :
             print('Early Stopping condition met!')
             break
-        if(validation_acc > .75) :
-            testimg = sess.run(yt, feed_dict = {x : vimg, keep_prob_e: 1.0, keep_prob_d: 1.0})
+        if(validation_acc > .5) :
+            testimg = sess.run(samples, feed_dict = {x : vimg, keep_prob_e: 1.0, keep_prob_d: 1.0})
             print(vlbl)
             plt.imshow(testimg[0])
             plt.show()
