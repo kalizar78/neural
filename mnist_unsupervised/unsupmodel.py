@@ -96,31 +96,33 @@ class Model(object) :
         # x0 = zeros
         # c0 = cell (from encoder)
         # h0 = hidden (initialized to 0)
-        x0_embed = tf.nn.sigmoid(tf.matmul(self.Wd_embed, tf.zeros_like(self.rnn_dec_state[0])) + self.bd_embed)
-        
+        x0_embed = tf.nn.sigmoid(tf.matmul(tf.zeros([self.batch_size, self.indim]), self.Wd_embed) + self.bd_embed)        
         # Define decoder step to use with tf.scan
-        def decode_step(x_ch, t) :
+        def decode_step(x_ch_act, t) :
             """
             xt, ct, ht of shape [batch, celldim]
-            x_ch[0] = Wd_embed * xt  + bd_embed
-            x_ch[1] = [ct, ht]
+            x_ch_act[0] = Wd_embed * xt  + bd_embed
+            x_ch_act[1] = [ct, ht]
+            x_ch_act[2] = activations_t
             t       = index, unused
             """
             # 1 step RNN embedding
-            Wxt = x_ch[0]
-            ch  = x_ch[1]
+            Wxt = x_ch_act[0]
+            ch  = x_ch_act[1]
             c_tp1, h_tp1 = self.rnn_dec.inference_step(Wxt, ch)
 
             # project, dropout, activation, embed, feedback as input
             y_tp1  = tf.nn.sigmoid(tf.nn.dropout(tf.matmul(h_tp1, self.Wd_proj) + self.bd_proj, keep_prob))
             Wx_tp1 = tf.nn.sigmoid(tf.matmul(y_tp1, self.Wd_embed) + self.bd_embed)
             
-            return [Wx_tp1, [c_tp1, h_tp1]]
+            return [Wx_tp1, [c_tp1, h_tp1], y_tp1]
 
         # Apply decode_step sequentially feeding back
-        act_t, cht = tf.scan(decode_step, 
-                             tf.constant(np.arange(nsteps).astype(np.float32).reshape([nsteps,1])),
-                             initializer = [x0_embed, [cell, self.rnn_dec_state[1]]]) # rnn_dec_state[1] is 0
+        xt, cht, act_t = tf.scan(decode_step, 
+                                 tf.constant(np.arange(nsteps).astype(np.float32).reshape([nsteps,1])),
+                                 initializer = [x0_embed,
+                                                [cell, self.rnn_dec_state[1]],  # rnn_dec_state[1] is 0
+                                                tf.zeros([self.batch_size, self.indim]) ]) 
 
         # yt has shape [nsteps, batch, indim]
         # sequential logits [nsteps * batch, indim]
@@ -158,8 +160,8 @@ class Model(object) :
         # y_tp1  = binary activations of shape [batch, indim]. Each coordinate is a binary logit
         # Wx_tp1 = embedded next input
         # project, dropout, activation, embed, feedback as input
-        y_tp1  = tf.nn.sigmoid(tf.nn.dropout(tf.matmul(h_tp1, self.Wd_proj) + self.bd_proj, keep_prob)) # [batch, indim]
-        Wx_tp1 = tf.nn.sigmoid(tf.matmul(y_tp1, self.Wd_embed) + self.bd_embed)                         # [batch, celldim]
+        y_tp1  = tf.nn.sigmoid(tf.matmul(h_tp1, self.Wd_proj) + self.bd_proj)  # [batch, indim]
+        Wx_tp1 = tf.nn.sigmoid(tf.matmul(y_tp1, self.Wd_embed) + self.bd_embed) # [batch, celldim]
 
         
         bprobs   = tf.reshape(y_tp1, [self.batch_size * self.indim,])
@@ -178,7 +180,7 @@ class Model(object) :
         ct_enc, ht_enc = self.encode(xt, nsteps, tf.constant(1.0)) 
 
         # Initialize seed input as in training:
-        x0_embed = tf.nn.sigmoid(tf.matmul(self.Wd_embed, tf.zeros_like(self.rnn_dec_state[0])) + self.bd_embed)        
+        x0_embed = tf.nn.sigmoid(tf.matmul(tf.zeros([self.batch_size, self.indim]), self.Wd_embed) + self.bd_embed)
 
         # Sample using ct_enc[-1], i.e. last set of encoder memories
         ht, cht, st = tf.scan(self.sample_step, 
